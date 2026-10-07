@@ -1,8 +1,10 @@
 # Project Name
-TARGET = oscillator
+TARGET = biquad
+
+USE_DAISYSP_LGPL = 1
 
 # Sources
-CPP_SOURCES = oscillator.cpp
+CPP_SOURCES = biquad.cpp
 
 # Library Locations
 LIBDAISY_DIR ?= ../../libDaisy
