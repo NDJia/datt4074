@@ -15,15 +15,19 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
     float saw, freq, output;
     for(size_t i = 0; i < size; i += 2)
     {
-        freq = 1000 + (lfo.Process() * 1000);
-        saw  = osc.Process();
+        // freq = 1000 + (lfo.Process() * 1000);
+        // saw  = osc.Process();
 
-        flt.SetCutoff(freq);
-        output = flt.Process(saw);
+        // flt.SetCutoff(freq);
+        // output = flt.Process(saw);
+
+        osc.PhaseAdd(lfo.Process()*0.01);
+
+        //lfo.Process();
+        output = osc.Process();
 
         // left out
         out[i] = output;
-
         // right out
         out[i + 1] = output;
     }
@@ -44,13 +48,13 @@ int main(void)
 
     // set parameters for sine oscillator object
     lfo.Init(sample_rate);
-    lfo.SetWaveform(Oscillator::WAVE_SIN);
-    lfo.SetAmp(1);
+    lfo.SetWaveform(Oscillator::WAVE_POLYBLEP_TRI);
+    lfo.SetAmp(0.8);
     lfo.SetFreq(0.1);
 
     // set parameters for sine oscillator object
     osc.Init(sample_rate);
-    osc.SetWaveform(Oscillator::WAVE_POLYBLEP_SQUARE);
+    osc.SetWaveform(Oscillator::WAVE_SIN);
     osc.SetFreq(100);
     osc.SetAmp(0.25);
 
@@ -68,7 +72,7 @@ int main(void)
 
 
     while(1) {
-        lfo.SetFreq(0.1f + hw.adc.GetFloat(0)*3.0f);
+        lfo.SetFreq(5.0 + hw.adc.GetFloat(0)*50.0f);
         if (lfo.IsRising()) hw.SetLed(true);
         else hw.SetLed(false);
         System::Delay(1);
