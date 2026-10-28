@@ -41,7 +41,7 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
         osc_out = osc.Process();
 
         // add together outputs
-        output = flt.Process(noise_out);
+        output = flt.Process(noise_out) + osc_out;
 
         // left out
         out[i] = output;
@@ -86,15 +86,25 @@ int main(void)
     osc.Init(sample_rate);
     osc.SetWaveform(Oscillator::WAVE_SIN);
     osc.SetFreq(200);
-    osc.SetAmp(0.25);
+    osc.SetAmp(0.1);
 
-    // == Setup for hardware component: knob
-    AdcChannelConfig knob;
-    knob.InitSingle(hw.GetPin(25));
+    // == Setup for hardware component: knobs
+    AdcChannelConfig knobs[2];
+    knobs[0].InitSingle(hw.GetPin(25));
+    knobs[1].InitSingle(hw.GetPin(24));
     //Initialize the adc with the config we just made
-    hw.adc.Init(&knob, 1);
+    hw.adc.Init(knobs, 2);
+
+    // == Setup for hardware component: knobs
+    // AdcChannelConfig freqKnob;
+    // freqKnob.InitSingle(hw.GetPin(24));
+    // //Initialize the adc on the second channel
+    // hw.adc.Init(&freqKnob, 2);
+
+
     //Start reading values
     hw.adc.Start();
+
 
     // set up limit switch as a button
     Switch button;
@@ -124,6 +134,9 @@ int main(void)
         }
 
         lfo.SetFreq(5.0 + hw.adc.GetFloat(0)*50.0f);
+
+        osc.SetFreq(110 + hw.adc.GetFloat(1)*330.f);
+
         // if (lfo.IsRising()) hw.SetLed(true);
         // else hw.SetLed(false);
         System::Delay(1);

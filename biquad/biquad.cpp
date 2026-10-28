@@ -6,25 +6,25 @@ using namespace daisy;
 
 static DaisySeed  hw;
 static Biquad     flt;
-static Oscillator osc, lfo;
+static Oscillator osc, lfo, pan;
 
 static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
                           AudioHandle::InterleavingOutputBuffer out,
                           size_t                                size)
 {
-    float saw, freq, output;
+    float saw, freq, output, pan_out;
     for(size_t i = 0; i < size; i += 2)
     {
-        // freq = 1000 + (lfo.Process() * 1000);
-        // saw  = osc.Process();
+        freq = 1000 + (lfo.Process() * 1000);
+        saw  = osc.Process();
 
-        // flt.SetCutoff(freq);
-        // output = flt.Process(saw);
+        pan_out = (1.0f + pan.Process()) / 2.0f;
 
-        osc.PhaseAdd(lfo.Process()*0.01);
+        flt.SetCutoff(freq);
+        output = flt.Process(saw);
 
         //lfo.Process();
-        output = osc.Process();
+        // output = osc.Process();
 
         // left out
         out[i] = output;
@@ -46,23 +46,31 @@ int main(void)
     flt.Init(sample_rate);
     flt.SetRes(0.7);
 
-    // set parameters for sine oscillator object
+    // set parameters for low-frequency oscillator
     lfo.Init(sample_rate);
     lfo.SetWaveform(Oscillator::WAVE_POLYBLEP_TRI);
-    lfo.SetAmp(0.8);
+    lfo.SetAmp(0.2);
     lfo.SetFreq(0.1);
 
     // set parameters for sine oscillator object
     osc.Init(sample_rate);
-    osc.SetWaveform(Oscillator::WAVE_SIN);
+    osc.SetWaveform(Oscillator::WAVE_POLYBLEP_SAW);
     osc.SetFreq(100);
-    osc.SetAmp(0.25);
+    osc.SetAmp(0.05);
+
+    // set parameters for ping-pong panner as even-lower frequency oscillator
+    lfo.Init(sample_rate);
+    lfo.SetWaveform(Oscillator::WAVE_SIN);
+    lfo.SetAmp(1);
+    lfo.SetFreq(0.08);
 
     // == Setup for hardware component: knob
-    AdcChannelConfig knob;
-    knob.InitSingle(hw.GetPin(25));
-    //Initialize the adc with the config we just made
-    hw.adc.Init(&knob, 1);
+    AdcChannelConfig knob[3];
+    knob[0].InitSingle(hw.GetPin(25));
+    knob[1].InitSingle(hw.GetPin(24));
+    knob[2].InitSingle(hw.GetPin(18));
+    //Initialize the adc with the config
+    hw.adc.Init(knob, 3);
     //Start reading values
     hw.adc.Start();
 
@@ -73,6 +81,8 @@ int main(void)
 
     while(1) {
         lfo.SetFreq(5.0 + hw.adc.GetFloat(0)*50.0f);
+        osc.SetFreq(50.0 + hw.adc.GetFloat(1)*100.0f);
+        pan.SetFreq(0.08 + hw.adc.GetFloat(2)*0.5f);
         if (lfo.IsRising()) hw.SetLed(true);
         else hw.SetLed(false);
         System::Delay(1);
