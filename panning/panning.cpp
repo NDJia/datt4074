@@ -5,27 +5,38 @@ using namespace daisysp;
 using namespace daisy;
 
 static DaisySeed  hw;
-static Oscillator osc, pan, osc2;
+static Oscillator osc, ringmod, osc2;
 static Line       line;
+static Adsr       adsr;
+static Biquad     flt;
 
 #define PI 3.14
+bool gate = false;
 
 static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
                           AudioHandle::InterleavingOutputBuffer out,
                           size_t                                size)
 {
-    float osc_out, osc2_out, pan_out;
+    float osc_out, osc2_out, ringmod_out, flt_freq;
+    float osc_sum, output;
     for(size_t i = 0; i < size; i += 2)
     {
+        // flt.SetRes(adsr.Process(gate)*100.0 + 15.0);
+
         osc_out = osc.Process();
         osc2_out = osc2.Process();
 
-        pan_out = (1 + pan.Process()) / 2.0f;
+        osc_sum = (osc_out + osc2_out) / 2.0f;
+
+        // flt.SetCutoff(flt_freq);
+        output = osc_sum;
+
+        ringmod_out = ringmod.Process();
 
         // left out
-        out[i] = ((osc_out * pan_out) + (osc2_out * (1 - pan_out))) / 2.0f;
+        out[i] = output * ringmod_out;
         // right out
-        out[i + 1] = ((osc2_out * pan_out) + (osc_out * (1 - pan_out))) / 2.0f;
+        out[i + 1] = output * ringmod_out;
     }
 }
 
@@ -52,13 +63,25 @@ int main(void)
     osc2.SetAmp(0.1);
 
     // initialize the low frequency oscillator
-    pan.Init(sample_rate);
-    pan.SetWaveform(Oscillator::WAVE_SIN);
-    pan.SetFreq(0.08);
-    pan.SetAmp(1);
+    ringmod.Init(sample_rate);
+    ringmod.SetWaveform(Oscillator::WAVE_POLYBLEP_TRI);
+    ringmod.SetFreq(0.08);
+    ringmod.SetAmp(0.3);
+
+    // initialize biquad
+    flt.Init(sample_rate);
+    flt.SetCutoff(500);
 
     // intialize line
     line.Init(sample_rate);
+
+    // initialize ADSR
+    adsr.Init(sample_rate);
+    adsr.SetTime(ADSR_SEG_ATTACK, 1.6);
+    adsr.SetTime(ADSR_SEG_DECAY, 2.2);
+    adsr.SetTime(ADSR_SEG_RELEASE, 0.5);
+
+    adsr.SetSustainLevel(0.7);
 
     // == Setup for two hardware knobs
     AdcChannelConfig knobs[3];
@@ -71,6 +94,9 @@ int main(void)
     //Start reading values
     hw.adc.Start();
 
+    // button setup
+    Switch button;
+    button.Init(hw.GetPin(26));
 
     // start audio callback
     hw.StartAudio(AudioCallback);
@@ -78,15 +104,27 @@ int main(void)
 
     // hardware processing should go in this loop
     while(1) {
+        button.Debounce();
         float knob1Pos = hw.adc.GetFloat(0);
-        if (knob1Pos < 0.01)
+        float knob2Pos = hw.adc.GetFloat(1);
+        float knob3Pos = hw.adc.GetFloat(2);
+
+        if (button.Pressed())
         {
-            pan.SetFreq(0);
+            gate = true;
+            hw.SetLed(true);
         }
+
         else
         {
-            pan.SetFreq(0.5 + hw.adc.GetFloat(0)*5.0f);
+            gate = false;
+            hw.SetLed(false);
         }
+
+        osc.SetFreq(660.0f + knob1Pos*660.0f);
+        // osc.SetFreq(440.0f + adsr.Process(gate)*220.0f);
+        osc2.SetFreq(441.0f + knob2Pos*441.0f);
+        ringmod.SetFreq(2.0f + knob3Pos*3.0f);
 
         System::Delay(1);
     }
