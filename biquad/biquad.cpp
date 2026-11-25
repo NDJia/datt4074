@@ -27,9 +27,9 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
         // output = osc.Process();
 
         // left out
-        out[i] = output;
+        out[i] = output * pan_out;
         // right out
-        out[i + 1] = output;
+        out[i + 1] = output * (1.0 - pan_out);
     }
 }
 
@@ -49,20 +49,20 @@ int main(void)
     // set parameters for low-frequency oscillator
     lfo.Init(sample_rate);
     lfo.SetWaveform(Oscillator::WAVE_POLYBLEP_TRI);
-    lfo.SetAmp(0.2);
+    lfo.SetAmp(1);
     lfo.SetFreq(0.1);
 
     // set parameters for sine oscillator object
     osc.Init(sample_rate);
     osc.SetWaveform(Oscillator::WAVE_POLYBLEP_SAW);
-    osc.SetFreq(100);
+    osc.SetFreq(400);
     osc.SetAmp(0.05);
 
     // set parameters for ping-pong panner as even-lower frequency oscillator
-    lfo.Init(sample_rate);
-    lfo.SetWaveform(Oscillator::WAVE_SIN);
-    lfo.SetAmp(1);
-    lfo.SetFreq(0.08);
+    pan.Init(sample_rate);
+    pan.SetWaveform(Oscillator::WAVE_SIN);
+    pan.SetAmp(1);
+    pan.SetFreq(0.08);
 
     // == Setup for hardware component: knob
     AdcChannelConfig knob[3];
@@ -80,10 +80,10 @@ int main(void)
 
 
     while(1) {
-        lfo.SetFreq(5.0 + hw.adc.GetFloat(0)*50.0f);
-        osc.SetFreq(50.0 + hw.adc.GetFloat(1)*100.0f);
+        // lfo.SetFreq(5.0 + hw.adc.GetFloat(0)*50.0f);
+        // osc.SetFreq(50.0 + hw.adc.GetFloat(1)*100.0f);
         pan.SetFreq(0.08 + hw.adc.GetFloat(2)*0.5f);
-        if (lfo.IsRising()) hw.SetLed(true);
+        if (pan.IsRising()) hw.SetLed(true);
         else hw.SetLed(false);
         System::Delay(1);
     }
